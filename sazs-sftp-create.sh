@@ -12,6 +12,7 @@
 #  $4 - SFTP User Name
 #  $5 - SFTP User Base Directory (will be created)
 #
+#  Trying to ensure Linux compatability
 #   
 #  Create Storage Account & Fileshare
 ACI_PERS_RESOURCE_GROUP=$1
