@@ -16,9 +16,12 @@
 #   
 #  Create Storage Account & Fileshare
 ACI_PERS_RESOURCE_GROUP=$1
-ACI_PERS_STORAGE_ACCOUNT_NAME=$3-$RANDOM-sftp
+ACI_PERS_STORAGE_ACCOUNT_NAME=${3}${RANDOM}sftp
 ACI_PERS_LOCATION=$2
 ACI_PERS_SHARE_NAME=sftpshare
+echo
+echo *** SFTP Storage Account and Container Group
+echo $ACI_PERS_STORAGE_ACCOUNT_NAME
 
 # Create the storage account with the parameters
 az storage account create \
@@ -42,8 +45,7 @@ STORAGE_KEY=$(az storage account keys list --resource-group $ACI_PERS_RESOURCE_G
 echo $STORAGE_KEY
 
 # Create SFTP Server Container Instance, generating User Password
-SFTP_PWD=head /dev/urandom | tr -dc A-Za-z0-9 | head -c 13 ; echo ''
-
+SFTP_PWD=$(date +%s | sha256sum | base64 | head -c 12)
 az container create \
     --resource-group $ACI_PERS_RESOURCE_GROUP \
     --name $ACI_PERS_STORAGE_ACCOUNT_NAME \
@@ -51,7 +53,7 @@ az container create \
     --dns-name-label $ACI_PERS_STORAGE_ACCOUNT_NAME \
     --ip-address public \
     --ports 22 \
-    --environment-variables 'SFTP_USERS=$4:$SFTP_PWD:::$5'
+    --environment-variables SFTP_USERS=$4:$SFTP_PWD:1001 \
     --azure-file-volume-account-name $ACI_PERS_STORAGE_ACCOUNT_NAME \
     --azure-file-volume-account-key $STORAGE_KEY \
     --azure-file-volume-share-name $ACI_PERS_SHARE_NAME \
