@@ -14,7 +14,7 @@
 #
 #  Trying to ensure Linux compatability
 #   
-#  Create Storage Account & Fileshare
+#  Create Storage Account & Fileshare  
 ACI_PERS_RESOURCE_GROUP=$1
 ACI_PERS_STORAGE_ACCOUNT_NAME=${3}${RANDOM}sftp
 ACI_PERS_LOCATION=$2
@@ -39,10 +39,11 @@ az storage share create -n $ACI_PERS_SHARE_NAME
 
 # Get and display Storage Account
 STORAGE_ACCOUNT=$(az storage account list --resource-group $ACI_PERS_RESOURCE_GROUP --query "[?contains(name,'$ACI_PERS_STORAGE_ACCOUNT_NAME')].[name]" --output tsv)
-echo $STORAGE_ACCOUNT
+echo '****************'
+echo Storage Acct: $STORAGE_ACCOUNT
 # Get and display Storage Key
 STORAGE_KEY=$(az storage account keys list --resource-group $ACI_PERS_RESOURCE_GROUP --account-name $STORAGE_ACCOUNT --query "[0].value" --output tsv)
-echo $STORAGE_KEY
+echo Storage Key:  $STORAGE_KEY
 
 # Create SFTP Server Container Instance, generating User Password
 SFTP_PWD=$(date +%s | sha256sum | base64 | head -c 12)
@@ -60,7 +61,7 @@ az container create \
     --azure-file-volume-mount-path /home/$4/$5
 
 # Display created FTP Server, User, Password
-echo ****************
+echo '****************'
 echo SFTP Server: $ACI_PERS_STORAGE_ACCOUNT_NAME.$ACI_PERS_LOCATION.azurecontainer.io
 echo SFTP User:   $4
 echo SFTP Pwd:    $SFTP_PWD
