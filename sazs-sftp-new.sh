@@ -20,7 +20,7 @@ ACI_PERS_STORAGE_ACCOUNT_NAME=${3}${RANDOM}sftp
 ACI_PERS_LOCATION=$2
 ACI_PERS_SHARE_NAME=sftpshare
 echo
-echo *** SFTP Storage Account and Container Group
+echo '***' SFTP Storage Account and Container Group
 echo $ACI_PERS_STORAGE_ACCOUNT_NAME
 
 # Create the storage account with the parameters
@@ -54,7 +54,7 @@ az container create \
     --dns-name-label $ACI_PERS_STORAGE_ACCOUNT_NAME \
     --ip-address public \
     --ports 22 \
-    --environment-variables SFTP_USERS=$4:$SFTP_PWD:1001 \
+    --environment-variables SFTP_USERS=$4:$SFTP_PWD \
     --azure-file-volume-account-name $ACI_PERS_STORAGE_ACCOUNT_NAME \
     --azure-file-volume-account-key $STORAGE_KEY \
     --azure-file-volume-share-name $ACI_PERS_SHARE_NAME \
