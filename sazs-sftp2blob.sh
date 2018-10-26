@@ -12,7 +12,7 @@ az container create \
     --dns-name-label ftp-2-blob \
     --ip-address public \
     --ports 22 \
-    --environment-variables SFTP_USERS=foo:$SFTP_PWD \
+    --environment-variables SFTP_USERS=foo:$SFTP_PWD:::upload 
 
 # Display created FTP Server, User, Password
 echo '****************'
