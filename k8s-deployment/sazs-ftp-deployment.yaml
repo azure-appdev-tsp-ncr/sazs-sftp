@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sazs-sftp
+  labels:
+    name: sazs-sftp
+spec:
+  type: ClusterIP
+  ports:
+  - name: ssl-sftp
+    port: 22
+    targetPort: 22
+  selector:
+    name: sazs-sftp-server
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sazs-sftp-azure-disk
+  annotations:
+    volume.beta.kubernetes.io/storage-class: default
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 32Gi
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name:  sazs-sftp-deploy
+  labels:
+    name:  sazs-sftp-server
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name:  sazs-sftp
+    spec:
+      containers:
+      - image:  atmoz/sftp:latest
+        name:  sazs-sftp-cntnr
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "64M"
+        env:
+        - name:  SFTP_LOGIN
+          value:  sftp_admin
+        - name:  SFTP_PWD
+          value:  sazs1234
+        - name:  SFTP_DIR
+          value:  upload
+        - name:  SFTP_USERS
+          value:  "$(SFTP_LOGIN):$(SFTP_PWD)"
+        ports:
+        - containerPort:  22
+          name:  sazs-sftp
+        volumeMounts:
+        - mountPath: "/home$/(SFTP_LOGIN)/$(SFTP_DIR)"
+          name: data
+        imagePullPolicy: Always
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sazs-sftp-azure-disk
+      restartPolicy: Always
