@@ -58,12 +58,12 @@ spec:
         - name:  SFTP_DIR
           value:  upload
         - name:  SFTP_USERS
-          value:  "$(SFTP_LOGIN):$(SFTP_PWD)"
+          value:  ["$(SFTP_LOGIN):$(SFTP_PWD)"]
         ports:
         - containerPort:  22
           name:  sazs-sftp
         volumeMounts:
-        - mountPath: "/home$/(SFTP_LOGIN)/$(SFTP_DIR)"
+        - mountPath: ["/home/$(SFTP_LOGIN)/$(SFTP_DIR)"]
           name: data
         imagePullPolicy: Always
       volumes:
