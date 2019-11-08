@@ -26,6 +26,8 @@ properties:
     type: Public
     ports:
     - protocol: tcp
+      port: '3310'
+    - protocol: tcp
       port: '8080'
 tags: null
 type: Microsoft.ContainerInstance/containerGroups
