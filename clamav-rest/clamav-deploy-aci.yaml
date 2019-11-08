@@ -12,6 +12,9 @@ properties:
           memoryInGb: 1.5
       ports:
       - port: 8080
+      environmentVariables:
+      - name: CLAMD_HOST
+        value: localhost
   - name: clamav-server
     properties:
       image: mkodockx/docker-clamav
@@ -25,8 +28,6 @@ properties:
   ipAddress:
     type: Public
     ports:
-    - protocol: tcp
-      port: '3310'
     - protocol: tcp
       port: '8080'
 tags: null
