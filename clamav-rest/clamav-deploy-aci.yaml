@@ -1,0 +1,31 @@
+apiVersion: 2018-10-01
+location: centralus
+name: ghasp-clamav-aci
+properties:
+  containers:
+  - name: clamav-rest
+    properties:
+      image: lokori/clamav-rest
+      resources:
+        requests:
+          cpu: 1
+          memoryInGb: 1.5
+      ports:
+      - port: 8080
+  - name: clamav-server
+    properties:
+      image: mkodockx/docker-clamav
+      resources:
+        requests:
+          cpu: 1
+          memoryInGb: 1.5
+      ports:
+      - port: 3310
+  osType: Linux
+  ipAddress:
+    type: Public
+    ports:
+    - protocol: tcp
+      port: '8080'
+tags: null
+type: Microsoft.ContainerInstance/containerGroups
