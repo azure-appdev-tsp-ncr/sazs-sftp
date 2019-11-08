@@ -30,5 +30,6 @@ properties:
     ports:
     - protocol: tcp
       port: '8080'
+    dnsNameLabel: ghaspclamav
 tags: null
 type: Microsoft.ContainerInstance/containerGroups
