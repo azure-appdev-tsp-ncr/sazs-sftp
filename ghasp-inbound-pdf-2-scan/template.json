@@ -1,0 +1,214 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_ghasp_inbound_pdf2text_name": {
+            "defaultValue": "ghasp-inbound-pdf2text",
+            "type": "String"
+        },
+        "connections_azureblob_1_externalid": {
+            "defaultValue": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/resourceGroups/sazs-usergroup01/providers/Microsoft.Web/connections/azureblob-1",
+            "type": "String"
+        },
+        "connections_azurequeues_externalid": {
+            "defaultValue": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/resourceGroups/sazs-usergroup01/providers/Microsoft.Web/connections/azurequeues",
+            "type": "String"
+        },
+        "connections_cloudmersive_externalid": {
+            "defaultValue": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/resourceGroups/sazs-usergroup01/providers/Microsoft.Web/connections/cloudmersive",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_ghasp_inbound_pdf2text_name')]",
+            "location": "centralus",
+            "properties": {
+                "state": "Disabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_there_are_messages_in_a_queue": {
+                            "recurrence": {
+                                "frequency": "Second",
+                                "interval": 45
+                            },
+                            "splitOn": "@triggerBody()?['QueueMessagesList']?['QueueMessage']",
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azurequeues']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/@{encodeURIComponent('mft-inbound-claimcheck')}/message_trigger"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Condition": {
+                            "actions": {
+                                "Create_blob": {
+                                    "runAfter": {},
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "body": "@body('Get_blob_content_using_path')",
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/datasets/default/files",
+                                        "queries": {
+                                            "folderPath": "/inbound-pdf-2-text",
+                                            "name": "@triggerBody()?['MessageId']",
+                                            "queryParametersSingleEncoded": true
+                                        }
+                                    },
+                                    "runtimeConfiguration": {
+                                        "contentTransfer": {
+                                            "transferMode": "Chunked"
+                                        }
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Scan_a_file_for_viruses": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "equals": [
+                                            "@body('Scan_a_file_for_viruses')?['CleanResult']",
+                                            "@true"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "type": "If"
+                        },
+                        "Delete_blob": {
+                            "runAfter": {
+                                "Condition": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                                    }
+                                },
+                                "method": "delete",
+                                "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent(triggerBody()?['MessageText']))}"
+                            }
+                        },
+                        "Delete_message": {
+                            "runAfter": {
+                                "Delete_blob": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azurequeues']['connectionId']"
+                                    }
+                                },
+                                "method": "delete",
+                                "path": "/@{encodeURIComponent('mft-inbound-claimcheck')}/messages/@{encodeURIComponent(triggerBody()?['MessageId'])}",
+                                "queries": {
+                                    "popreceipt": "@triggerBody()?['PopReceipt']"
+                                }
+                            }
+                        },
+                        "Get_blob_content_using_path": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/datasets/default/GetFileContentByPath",
+                                "queries": {
+                                    "inferContentType": true,
+                                    "path": "@triggerBody()?['MessageText']",
+                                    "queryParametersSingleEncoded": true
+                                }
+                            }
+                        },
+                        "Scan_a_file_for_viruses": {
+                            "runAfter": {
+                                "Get_blob_content_using_path": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "$content-type": "multipart/form-data",
+                                    "$multipart": [
+                                        {
+                                            "body": "@body('Get_blob_content_using_path')",
+                                            "headers": {
+                                                "Content-Disposition": "form-data; name=\"inputFile\""
+                                            }
+                                        }
+                                    ]
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['cloudmersive']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/virus/scan/file"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureblob_1": {
+                                "connectionId": "[parameters('connections_azureblob_1_externalid')]",
+                                "connectionName": "azureblob-1",
+                                "id": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/providers/Microsoft.Web/locations/centralus/managedApis/azureblob"
+                            },
+                            "azurequeues": {
+                                "connectionId": "[parameters('connections_azurequeues_externalid')]",
+                                "connectionName": "azurequeues",
+                                "id": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/providers/Microsoft.Web/locations/centralus/managedApis/azurequeues"
+                            },
+                            "cloudmersive": {
+                                "connectionId": "[parameters('connections_cloudmersive_externalid')]",
+                                "connectionName": "cloudmersive",
+                                "id": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/providers/Microsoft.Web/locations/centralus/managedApis/cloudmersive"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
