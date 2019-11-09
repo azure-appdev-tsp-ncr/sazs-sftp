@@ -1,0 +1,234 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_ghasp20529sftp_inbound_name": {
+            "defaultValue": "ghasp20529sftp-inbound",
+            "type": "String"
+        },
+        "connections_azureblob_1_externalid": {
+            "defaultValue": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/resourceGroups/sazs-usergroup01/providers/Microsoft.Web/connections/azureblob-1",
+            "type": "String"
+        },
+        "connections_azurefile_externalid": {
+            "defaultValue": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/resourceGroups/sazs-usergroup01/providers/Microsoft.Web/connections/azurefile",
+            "type": "String"
+        },
+        "connections_azurequeues_externalid": {
+            "defaultValue": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/resourceGroups/sazs-usergroup01/providers/Microsoft.Web/connections/azurequeues",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_ghasp20529sftp_inbound_name')]",
+            "location": "centralus",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Recurrence": {
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 1
+                            },
+                            "type": "Recurrence"
+                        }
+                    },
+                    "actions": {
+                        "For_each": {
+                            "foreach": "@body('List_files')?['value']",
+                            "actions": {
+                                "Condition": {
+                                    "actions": {
+                                        "Copy_file": {
+                                            "runAfter": {},
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azurefile']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "post",
+                                                "path": "/datasets/default/copyFile",
+                                                "queries": {
+                                                    "destination": "/sftpshare/archive/@{items('For_each')?['Name']}",
+                                                    "overwrite": true,
+                                                    "queryParametersSingleEncoded": true,
+                                                    "source": "@items('For_each')?['Path']"
+                                                }
+                                            }
+                                        },
+                                        "Create_blob": {
+                                            "runAfter": {
+                                                "Get_file_content": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "body": "@body('Get_file_content')",
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azureblob_1']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "post",
+                                                "path": "/datasets/default/files",
+                                                "queries": {
+                                                    "folderPath": "/inbound-pdf-2-scan/",
+                                                    "name": "@{concat(utcNow(), '-', body('Copy_file')?['Name'])}",
+                                                    "queryParametersSingleEncoded": true
+                                                }
+                                            },
+                                            "runtimeConfiguration": {
+                                                "contentTransfer": {
+                                                    "transferMode": "Chunked"
+                                                }
+                                            }
+                                        },
+                                        "Delete_file": {
+                                            "runAfter": {
+                                                "Create_blob": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azurefile']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "delete",
+                                                "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent(items('For_each')?['Path']))}"
+                                            }
+                                        },
+                                        "Get_file_content": {
+                                            "runAfter": {
+                                                "Copy_file": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azurefile']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "get",
+                                                "path": "/datasets/default/files/@{encodeURIComponent(encodeURIComponent(body('Copy_file')?['Path']))}/content",
+                                                "queries": {
+                                                    "inferContentType": true
+                                                }
+                                            }
+                                        },
+                                        "Put_a_message_on_a_queue": {
+                                            "runAfter": {
+                                                "Delete_file": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "body": "@body('Create_blob')?['Path']",
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['azurequeues']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "post",
+                                                "path": "/@{encodeURIComponent('mft-inbound-claimcheck')}/messages"
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {},
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "not": {
+                                                    "equals": [
+                                                        "@items('For_each')?['IsFolder']",
+                                                        "@true"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "endsWith": [
+                                                    "@items('For_each')?['Name']",
+                                                    "@'.pdf'"
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "type": "If"
+                                }
+                            },
+                            "runAfter": {
+                                "List_files": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach"
+                        },
+                        "List_files": {
+                            "runAfter": {},
+                            "metadata": {
+                                "JTJmc2Z0cHNoYXJl": "/sftpshare"
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azurefile']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/datasets/default/foldersV2/@{encodeURIComponent(encodeURIComponent('JTJmc2Z0cHNoYXJl'))}",
+                                "queries": {
+                                    "nextPageMarker": "",
+                                    "useFlatListing": false
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureblob_1": {
+                                "connectionId": "[parameters('connections_azureblob_1_externalid')]",
+                                "connectionName": "azureblob-1",
+                                "id": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/providers/Microsoft.Web/locations/centralus/managedApis/azureblob"
+                            },
+                            "azurefile": {
+                                "connectionId": "[parameters('connections_azurefile_externalid')]",
+                                "connectionName": "azurefile",
+                                "id": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/providers/Microsoft.Web/locations/centralus/managedApis/azurefile"
+                            },
+                            "azurequeues": {
+                                "connectionId": "[parameters('connections_azurequeues_externalid')]",
+                                "connectionName": "azurequeues",
+                                "id": "/subscriptions/aa843008-1bae-4ffc-aa4c-5d65505c4a7c/providers/Microsoft.Web/locations/centralus/managedApis/azurequeues"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
