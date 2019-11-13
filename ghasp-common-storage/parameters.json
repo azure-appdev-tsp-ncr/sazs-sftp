@@ -4,6 +4,9 @@
     "parameters": {
         "storageAccounts_ghaspmftcommon_name": {
             "value": null
+        },
+        "storageAccounts_ghaspmftcommon_loc": {
+            "value": null
         }
     }
 }

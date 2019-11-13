@@ -5,6 +5,10 @@
         "storageAccounts_ghaspmftcommon_name": {
             "defaultValue": "ghaspmftcommon",
             "type": "String"
+        },
+        "storageAccounts_ghaspmftcommon_loc": {
+            "defaultValue": "centralus",
+            "type": "String"
         }
     },
     "variables": {},
@@ -13,7 +17,7 @@
             "type": "Microsoft.Storage/storageAccounts",
             "apiVersion": "2019-04-01",
             "name": "[parameters('storageAccounts_ghaspmftcommon_name')]",
-            "location": "centralus",
+            "location": "[parameters('storageAccounts_ghaspmftcommon_loc')]",
             "sku": {
                 "name": "Standard_RAGRS",
                 "tier": "Standard"
